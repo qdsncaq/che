@@ -168,6 +168,7 @@ export class CheWorkspace {
       angular.copy(this.workspacesById, copyWorkspaceById);
 
       this.workspacesById.clear();
+      this.workspacesByNamespace.clear();
       // add workspace if not temporary
       data.forEach((workspace) => {
 
@@ -175,7 +176,12 @@ export class CheWorkspace {
           remoteWorkspaces.push(workspace);
           this.workspaces.push(workspace);
           this.workspacesById.set(workspace.id, workspace);
-          this.workspacesByNamespace.set(workspace.namespace, workspace);
+          let namespaceWorkspaces = this.workspacesByNamespace.get(workspace.namespace);
+          if (namespaceWorkspaces) {
+            namespaceWorkspaces.push(workspace);
+          } else {
+            this.workspacesByNamespace.set(workspace.namespace, [workspace]);
+          }
         }
         this.startUpdateWorkspaceStatus(workspace.id);
       });

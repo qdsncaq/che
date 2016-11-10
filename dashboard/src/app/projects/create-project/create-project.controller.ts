@@ -668,7 +668,7 @@ export class CreateProjectController {
     return projects;
   }
 
-  resolveProjectType(workspaceId: string, projectName: string, projectData: any, deferredResolve: ng.IDeferred<any>) {
+  resolveProjectType(workspaceId, projectName, projectData, deferredResolve) {
     let projectDetails = projectData.project;
     if (!projectDetails.attributes) {
       projectDetails.source = projectData.source;

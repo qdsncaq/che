@@ -220,6 +220,73 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         assertEquals(file2Content, projectFolder2.getChild("file2").getVirtualFile().getContentAsString());
     }
 
+
+    @Test
+    public void testCreateBatchProjectsWithInnerProject2() throws Exception {
+        final String projectPath1 = "/testProject1";
+        final String projectPath2 = "/testProject1/innerProject";
+        final String importType = "importType1";
+        final String projectType2 = "pt2";
+
+        Map<String, List<String>> attributes = new HashMap<>();
+        attributes.put("pt2-var2", new AttributeValue("test").getList());
+
+        ByteArrayOutputStream bout = new ByteArrayOutputStream();
+        ZipOutputStream zipOut = new ZipOutputStream(bout);
+
+        final String file1Content = "to be or not to be";
+        zipOut.putNextEntry(new ZipEntry("folder1/"));
+        zipOut.putNextEntry(new ZipEntry("folder1/file1.txt"));
+        zipOut.putNextEntry(new ZipEntry("file1"));
+        zipOut.write(file1Content.getBytes());
+
+        final String file2Content = "that is the question";
+        zipOut.putNextEntry(new ZipEntry("innerProject/"));
+        zipOut.putNextEntry(new ZipEntry("innerProject/folder2/"));
+        zipOut.putNextEntry(new ZipEntry("innerProject/folder2/file2.txt"));
+        zipOut.putNextEntry(new ZipEntry("innerProject/file2"));
+        zipOut.write(file2Content.getBytes());
+
+        zipOut.close();
+        InputStream zip = new ByteArrayInputStream(bout.toByteArray());
+        registerImporter(importType, zip);
+
+        SourceStorageDto source = DtoFactory.newDto(SourceStorageDto.class).withLocation("someLocation").withType(importType);
+        CreateProjectConfigDto config1 = createProjectConfigObject("testProject1", projectPath1, BaseProjectType.ID, source);
+        CreateProjectConfigDto config2 = createProjectConfigObject("innerProject", projectPath2, projectType2, source);
+        config2.setAttributes(attributes);
+
+        List<CreateProjectConfig> configs = new ArrayList<>(2);
+        configs.add(config1);
+        configs.add(config2);
+
+        pm.createBatchProjects(configs);
+
+        RegisteredProject project1 = projectRegistry.getProject(projectPath1);
+        FolderEntry projectFolder1 = project1.getBaseFolder();
+        RegisteredProject project2 = projectRegistry.getProject(projectPath2);
+        FolderEntry projectFolder2 = project2.getBaseFolder();
+
+
+
+        assertNotNull(project1);
+        assertTrue(projectFolder1.getVirtualFile().exists());
+        assertEquals(projectPath1, project1.getPath());
+        assertNotNull(projectFolder1.getChild("file1"));
+        assertNotNull(projectFolder1.getChild("folder1"));
+        assertNotNull(projectFolder1.getChild("folder1/file1.txt"));
+        assertEquals(file1Content, projectFolder1.getChild("file1").getVirtualFile().getContentAsString());
+
+        assertNotNull(project2);
+        assertTrue(projectFolder2.getVirtualFile().exists());
+        assertEquals(projectPath2, project2.getPath());
+        assertEquals(projectType2, project2.getType());
+        assertNotNull(projectFolder2.getChild("file2"));
+        assertNotNull(projectFolder2.getChild("folder2"));
+        assertNotNull(projectFolder2.getChild("folder2/file2.txt"));
+        assertEquals(file2Content, projectFolder2.getChild("file2").getVirtualFile().getContentAsString());
+    }
+
     private CreateProjectConfigDto createProjectConfigObject(String projectName,
                                                              String projectPath,
                                                              String projectType,

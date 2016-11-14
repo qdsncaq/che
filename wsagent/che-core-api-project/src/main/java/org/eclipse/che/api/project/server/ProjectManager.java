@@ -410,7 +410,7 @@ public final class ProjectManager {
         final RegisteredProject project = projectRegistry.putProject(newConfig, baseFolder, true, false);
 
         // unlike imported it is not appropriate for updated project to have problems
-        if(!project.getProblems().isEmpty()) {
+        if (!project.getProblems().isEmpty()) {
 
             // rollback project folder
             projectRegistry.putProject(oldConfig, baseFolder, false, false);

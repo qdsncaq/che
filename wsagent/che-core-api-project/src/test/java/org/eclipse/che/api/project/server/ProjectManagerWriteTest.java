@@ -14,6 +14,7 @@ import org.eclipse.che.api.core.ConflictException;
 import org.eclipse.che.api.core.ForbiddenException;
 import org.eclipse.che.api.core.NotFoundException;
 import org.eclipse.che.api.core.ServerException;
+import org.eclipse.che.api.core.model.project.CreateProjectConfig;
 import org.eclipse.che.api.core.model.project.ProjectConfig;
 import org.eclipse.che.api.core.model.project.SourceStorage;
 import org.eclipse.che.api.core.notification.EventSubscriber;
@@ -25,6 +26,7 @@ import org.eclipse.che.api.project.server.type.AttributeValue;
 import org.eclipse.che.api.project.server.type.BaseProjectType;
 import org.eclipse.che.api.project.server.type.Variable;
 import org.eclipse.che.api.vfs.Path;
+import org.eclipse.che.api.workspace.shared.dto.CreateProjectConfigDto;
 import org.eclipse.che.api.workspace.shared.dto.ProjectConfigDto;
 import org.eclipse.che.api.workspace.shared.dto.SourceStorageDto;
 import org.eclipse.che.dto.server.DtoFactory;
@@ -66,14 +68,173 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         projectTypeRegistry.registerProjectType(new PTsettableVP());
 
         projectHandlerRegistry.register(new SrcGenerator());
+    }
+
+    @Test
+    public void testCreateBatchProjectsByConfigs() throws Exception {
+        final String projectPath1 = "/testProject1";
+        final String projectPath2 = "/testProject2";
+
+        CreateProjectConfig config1 = createProjectConfigObject("testProject1", projectPath1, "blank", null);
+        CreateProjectConfig config2 = createProjectConfigObject("testProject2", projectPath2, "blank", null);
+
+        List<CreateProjectConfig> configs = new ArrayList<>(2);
+        configs.add(config1);
+        configs.add(config2);
+
+        pm.createBatchProjects(configs);
+
+        assertNotNull(projectRegistry.getProject(projectPath1));
+        assertNotNull(projectRegistry.getProject(projectPath2));
+        assertEquals(2, projectRegistry.getProjects().size());
+    }
+
+    @Test
+    public void testCreateBatchProjectsByImportingSourceCode() throws Exception {
+        final String projectPath1 = "/testProject1";
+        final String projectPath2 = "/testProject2";
+        final String importType1 = "importType1";
+        final String importType2 = "importType2";
+
+        ByteArrayOutputStream bout = new ByteArrayOutputStream();
+        ZipOutputStream zipOut = new ZipOutputStream(bout);
+
+        final String file1Content = "to be or not to be";
+        zipOut.putNextEntry(new ZipEntry("folder1/"));
+        zipOut.putNextEntry(new ZipEntry("folder1/file1.txt"));
+        zipOut.putNextEntry(new ZipEntry("file1"));
+        zipOut.write(file1Content.getBytes());
+        zipOut.close();
+        InputStream zip = new ByteArrayInputStream(bout.toByteArray());
+        registerImporter(importType1, zip);
+
+        final String file2Content = "that is the question";
+        bout = new ByteArrayOutputStream();
+        zipOut = new ZipOutputStream(bout);
+        zipOut.putNextEntry(new ZipEntry("folder2/"));
+        zipOut.putNextEntry(new ZipEntry("folder2/file2.txt"));
+        zipOut.putNextEntry(new ZipEntry("file2"));
+        zipOut.write(file2Content.getBytes());
+        zipOut.close();
+        zip = new ByteArrayInputStream(bout.toByteArray());
+        registerImporter(importType2, zip);
+
+        SourceStorageDto source1 = DtoFactory.newDto(SourceStorageDto.class).withLocation("someLocation").withType(importType1);
+        CreateProjectConfigDto config1 = createProjectConfigObject("testProject1", projectPath1, "blank", source1);
+
+        SourceStorageDto source2 = DtoFactory.newDto(SourceStorageDto.class).withLocation("someLocation").withType(importType2);
+        CreateProjectConfigDto config2 = createProjectConfigObject("testProject2", projectPath2, "blank", source2);
+
+        List<CreateProjectConfig> configs = new ArrayList<>(2);
+        configs.add(config1);
+        configs.add(config2);
+
+        pm.createBatchProjects(configs);
+
+        RegisteredProject project1 = projectRegistry.getProject(projectPath1);
+        FolderEntry projectFolder1 = project1.getBaseFolder();
+        RegisteredProject project2 = projectRegistry.getProject(projectPath2);
+        FolderEntry projectFolder2 = project2.getBaseFolder();
+
+
+        assertNotNull(project1);
+        assertTrue(projectFolder1.getVirtualFile().exists());
+        assertEquals(projectPath1, project1.getPath());
+        assertNotNull(projectFolder1.getChild("file1"));
+        assertNotNull(projectFolder1.getChild("folder1"));
+        assertNotNull(projectFolder1.getChild("folder1/file1.txt"));
+        assertEquals(file1Content, projectFolder1.getChild("file1").getVirtualFile().getContentAsString());
+
+        assertNotNull(project2);
+        assertTrue(projectFolder2.getVirtualFile().exists());
+        assertEquals(projectPath2, project2.getPath());
+        assertNotNull(projectFolder2.getChild("file2"));
+        assertNotNull(projectFolder2.getChild("folder2"));
+        assertNotNull(projectFolder2.getChild("folder2/file2.txt"));
+        assertEquals(file2Content, projectFolder2.getChild("file2").getVirtualFile().getContentAsString());
 
     }
 
+    @Test
+    public void testCreateBatchProjectsWithInnerProject() throws Exception {
+        final String projectPath1 = "/testProject1";
+        final String projectPath2 = "/testProject1/innerProject";
+        final String importType = "importType1";
+        final String projectType2 = "pt2";
+
+        Map<String, List<String>> attributes = new HashMap<>();
+        attributes.put("pt2-var2", new AttributeValue("test").getList());
+
+        ByteArrayOutputStream bout = new ByteArrayOutputStream();
+        ZipOutputStream zipOut = new ZipOutputStream(bout);
+
+        final String file1Content = "to be or not to be";
+        zipOut.putNextEntry(new ZipEntry("folder1/"));
+        zipOut.putNextEntry(new ZipEntry("folder1/file1.txt"));
+        zipOut.putNextEntry(new ZipEntry("file1"));
+        zipOut.write(file1Content.getBytes());
+
+        final String file2Content = "that is the question";
+        zipOut.putNextEntry(new ZipEntry("innerProject/"));
+        zipOut.putNextEntry(new ZipEntry("innerProject/folder2/"));
+        zipOut.putNextEntry(new ZipEntry("innerProject/folder2/file2.txt"));
+        zipOut.putNextEntry(new ZipEntry("innerProject/file2"));
+        zipOut.write(file2Content.getBytes());
+
+        zipOut.close();
+        InputStream zip = new ByteArrayInputStream(bout.toByteArray());
+        registerImporter(importType, zip);
+
+        SourceStorageDto source = DtoFactory.newDto(SourceStorageDto.class).withLocation("someLocation").withType(importType);
+        CreateProjectConfigDto config1 = createProjectConfigObject("testProject1", projectPath1, BaseProjectType.ID, source);
+        CreateProjectConfigDto config2 = createProjectConfigObject("innerProject", projectPath2, projectType2, null);
+        config2.setAttributes(attributes);
+
+        List<CreateProjectConfig> configs = new ArrayList<>(2);
+        configs.add(config1);
+        configs.add(config2);
+
+        pm.createBatchProjects(configs);
+
+        RegisteredProject project1 = projectRegistry.getProject(projectPath1);
+        FolderEntry projectFolder1 = project1.getBaseFolder();
+        RegisteredProject project2 = projectRegistry.getProject(projectPath2);
+        FolderEntry projectFolder2 = project2.getBaseFolder();
+
+
+        assertNotNull(project1);
+        assertTrue(projectFolder1.getVirtualFile().exists());
+        assertEquals(projectPath1, project1.getPath());
+        assertNotNull(projectFolder1.getChild("file1"));
+        assertNotNull(projectFolder1.getChild("folder1"));
+        assertNotNull(projectFolder1.getChild("folder1/file1.txt"));
+        assertEquals(file1Content, projectFolder1.getChild("file1").getVirtualFile().getContentAsString());
+
+        assertNotNull(project2);
+        assertTrue(projectFolder2.getVirtualFile().exists());
+        assertEquals(projectPath2, project2.getPath());
+        assertEquals(projectType2, project2.getType());
+        assertNotNull(projectFolder2.getChild("file2"));
+        assertNotNull(projectFolder2.getChild("folder2"));
+        assertNotNull(projectFolder2.getChild("folder2/file2.txt"));
+        assertEquals(file2Content, projectFolder2.getChild("file2").getVirtualFile().getContentAsString());
+    }
+
+    private CreateProjectConfigDto createProjectConfigObject(String projectName,
+                                                             String projectPath,
+                                                             String projectType,
+                                                             SourceStorageDto sourceStorage) {
+        return DtoFactory.newDto(CreateProjectConfigDto.class)
+                         .withPath(projectPath)
+                         .withName(projectName)
+                         .withType(projectType)
+                         .withDescription("description")
+                         .withSource(sourceStorage)
+                         .withAttributes(new HashMap<>());
+    }
 
     @Test
     public void testCreateProject() throws Exception {
-
-
         Map<String, List<String>> attrs = new HashMap<>();
         List<String> v = new ArrayList<>();
         v.add("meV");
@@ -95,7 +256,6 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         assertEquals("/createProject", project.getPath());
         assertEquals(2, project.getAttributeEntries().size());
         assertEquals("meV", project.getAttributeEntries().get("var1").getString());
-
     }
 
     @Test
@@ -253,8 +413,6 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
 
     @Test
     public void testCreateInnerProject() throws Exception {
-
-
         ProjectConfig pc = new NewProjectConfig("/testCreateInnerProject", BaseProjectType.ID, null, "name", "descr", null, null);
         pm.createProject(pc, null);
 
@@ -273,7 +431,6 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         assertNotNull(projectRegistry.getProject("/nothing/inner"));
         assertNotNull(projectRegistry.getProject("/nothing"));
         assertNotNull(pm.getProjectsRoot().getChildFolder("/nothing"));
-
     }
 
 

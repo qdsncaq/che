@@ -22,6 +22,7 @@ import org.eclipse.che.api.workspace.server.model.impl.WorkspaceConfigImpl;
 import org.eclipse.che.commons.lang.NameGenerator;
 
 import javax.persistence.CascadeType;
+import javax.persistence.CollectionTable;
 import javax.persistence.Column;
 import javax.persistence.ElementCollection;
 import javax.persistence.Embedded;
@@ -40,7 +41,7 @@ import java.util.Set;
  * @author Anton Korneta
  */
 @Entity(name = "Factory")
-@Table
+@Table(name = "factory")
 // TODO fix after issue: https://github.com/eclipse/che/issues/2110
 //(uniqueConstraints = {@UniqueConstraint(columnNames = {"name", "userId"})})
 public class FactoryImpl implements Factory {
@@ -50,34 +51,35 @@ public class FactoryImpl implements Factory {
     }
 
     @Id
+    @Column(name = "id")
     private String id;
 
-    @Column(nullable = true)
+    @Column(name = "name", nullable = true)
     private String name;
 
-    @Column(nullable = false)
+    @Column(name = "version", nullable = false)
     private String version;
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, optional = false)
+    @JoinColumn(name = "workspace_id")
     private WorkspaceConfigImpl workspace;
 
     @Embedded
     private AuthorImpl creator;
 
-    @OneToOne
-    @JoinColumn(insertable = false, updatable = false, name = "userId")
-    private UserImpl userEntity;
-
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "button_id")
     private ButtonImpl button;
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "ide_id")
     private IdeImpl ide;
 
     @Embedded
     private PoliciesImpl policies;
 
     @ElementCollection
+    @CollectionTable(name = "factory_images", joinColumns = @JoinColumn(name = "factory_id"))
     private Set<FactoryImage> images;
 
     public FactoryImpl() {}

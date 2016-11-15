@@ -42,6 +42,8 @@
     <properties>
         <che.lib.version>5.0.0-M8-SNAPSHOT</che.lib.version>
         <che.version>5.0.0-M8-SNAPSHOT</che.version>
+        <jdbc.postgresql-driver.version>9.3-1102-jdbc41</jdbc.postgresql-driver.version>
+        <org.flyway.version>4.0.3</org.flyway.version>
         <specification.version>1.0-beta2</specification.version>
     </properties>
     <dependencyManagement>
@@ -167,16 +169,6 @@
                 <groupId>org.eclipse.che.core</groupId>
                 <artifactId>che-core-api-infrastructure-local</artifactId>
                 <version>${che.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.eclipse.che.core</groupId>
-                <artifactId>che-core-api-jdbc</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.eclipse.che.core</groupId>
-                <artifactId>che-core-api-jdbc-vendor-h2</artifactId>
-                <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.eclipse.che.core</groupId>
@@ -314,6 +306,21 @@
             </dependency>
             <dependency>
                 <groupId>org.eclipse.che.core</groupId>
+                <artifactId>che-core-db</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.che.core</groupId>
+                <artifactId>che-core-db-vendor-h2</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.che.core</groupId>
+                <artifactId>che-core-db-vendor-postgresql</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.che.core</groupId>
                 <artifactId>che-core-git-impl-jgit</artifactId>
                 <version>${che.version}</version>
             </dependency>
@@ -345,6 +352,11 @@
             <dependency>
                 <groupId>org.eclipse.che.core</groupId>
                 <artifactId>che-core-ide-ui</artifactId>
+                <version>${che.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.che.core</groupId>
+                <artifactId>che-core-sql-schema</artifactId>
                 <version>${che.version}</version>
             </dependency>
             <dependency>
@@ -846,6 +858,16 @@
                 <groupId>org.eclipse.che.sample</groupId>
                 <artifactId>che-sample-plugin-wizard-shared</artifactId>
                 <version>${che.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-core</artifactId>
+                <version>${org.flyway.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${jdbc.postgresql-driver.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.eclipse.che.core</groupId>

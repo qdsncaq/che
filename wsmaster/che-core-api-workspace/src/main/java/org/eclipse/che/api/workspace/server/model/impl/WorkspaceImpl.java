@@ -12,18 +12,17 @@ package org.eclipse.che.api.workspace.server.model.impl;
 
 import org.eclipse.che.account.shared.model.Account;
 import org.eclipse.che.account.spi.AccountImpl;
-import org.eclipse.che.api.core.jdbc.jpa.eclipselink.DescriptorEventAdapter;
 import org.eclipse.che.api.core.model.workspace.Workspace;
 import org.eclipse.che.api.core.model.workspace.WorkspaceConfig;
 import org.eclipse.che.api.core.model.workspace.WorkspaceRuntime;
 import org.eclipse.che.api.core.model.workspace.WorkspaceStatus;
-import org.eclipse.che.api.machine.server.model.impl.SnapshotImpl;
 import org.eclipse.che.api.workspace.server.jpa.WorkspaceEntityListener;
 import org.eclipse.che.commons.lang.NameGenerator;
 import org.eclipse.persistence.descriptors.DescriptorEvent;
+import org.eclipse.persistence.descriptors.DescriptorEventAdapter;
 
-import javax.persistence.Basic;
 import javax.persistence.CascadeType;
+import javax.persistence.CollectionTable;
 import javax.persistence.Column;
 import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
@@ -32,17 +31,15 @@ import javax.persistence.FetchType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.MapKeyColumn;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
-import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
 import javax.persistence.PrePersist;
 import javax.persistence.PreUpdate;
 import javax.persistence.Table;
 import javax.persistence.Transient;
-import javax.persistence.UniqueConstraint;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -52,7 +49,7 @@ import java.util.Objects;
  * @author Yevhenii Voevodin
  */
 @Entity(name = "Workspace")
-@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"name", "accountId"}))
+@Table(name = "workspace")
 @NamedQueries(
         {
                 @NamedQuery(name = "Workspace.getByNamespace",
@@ -71,6 +68,7 @@ public class WorkspaceImpl implements Workspace {
     }
 
     @Id
+    @Column(name = "id")
     private String id;
 
     /**
@@ -78,27 +76,24 @@ public class WorkspaceImpl implements Workspace {
      * this attribute is stored for unique constraint with account id.
      * See {@link #syncName()}.
      */
-    @Column
+    @Column(name = "name")
     private String name;
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "config_id")
     private WorkspaceConfigImpl config;
 
     @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "workspace_attributes", joinColumns = @JoinColumn(name = "workspace_id"))
+    @MapKeyColumn(name = "attributes_key")
+    @Column(name = "attributes")
     private Map<String, String> attributes;
 
-    @Basic
+    @Column(name = "istemporary")
     private boolean isTemporary;
 
-    // This mapping is present here just for generation of the constraint between
-    // snapshots and workspace, it's impossible to do so on snapshot side
-    // as workspace and machine are different modules and cyclic reference will appear
-    @OneToMany(fetch = FetchType.LAZY)
-    @JoinColumn(name = "workspaceId", insertable = false, updatable = false)
-    private List<SnapshotImpl> snapshots;
-
     @ManyToOne
-    @JoinColumn(name = "accountId", nullable = false)
+    @JoinColumn(name = "accountid", nullable = false)
     private AccountImpl account;
 
     @Transient

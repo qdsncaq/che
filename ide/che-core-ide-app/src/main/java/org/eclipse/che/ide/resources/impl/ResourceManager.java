@@ -16,6 +16,7 @@ import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;
 import com.google.web.bindery.event.shared.EventBus;
 
+import org.eclipse.che.api.core.model.project.NewProjectConfig;
 import org.eclipse.che.api.core.model.project.ProjectConfig;
 import org.eclipse.che.api.core.model.project.SourceStorage;
 import org.eclipse.che.api.core.rest.shared.dto.Link;
@@ -27,7 +28,7 @@ import org.eclipse.che.api.promises.client.FunctionException;
 import org.eclipse.che.api.promises.client.Promise;
 import org.eclipse.che.api.promises.client.PromiseProvider;
 import org.eclipse.che.api.promises.client.js.Promises;
-import org.eclipse.che.api.workspace.shared.dto.CreateProjectConfigDto;
+import org.eclipse.che.api.workspace.shared.dto.NewProjectConfigDto;
 import org.eclipse.che.api.workspace.shared.dto.ProjectConfigDto;
 import org.eclipse.che.api.workspace.shared.dto.ProjectProblemDto;
 import org.eclipse.che.api.workspace.shared.dto.SourceStorageDto;
@@ -57,6 +58,7 @@ import org.eclipse.che.ide.dto.DtoFactory;
 import org.eclipse.che.ide.resource.Path;
 import org.eclipse.che.ide.util.Arrays;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -425,9 +427,11 @@ public final class ResourceManager {
                 }
 
                 final MutableProjectConfig projectConfig = (MutableProjectConfig)createRequest.getBody();
-                final List<CreateProjectConfigDto> projectConfigList = projectConfig.getProjects();
-                projectConfigList.add(toCreateProjectConfig(projectConfig));
-                return ps.createBatchProjects(projectConfigList).thenPromise(new Function<List<ProjectConfigDto>, Promise<Project>>() {
+                final List<NewProjectConfig> projectConfigList = projectConfig.getProjects();
+                projectConfigList.add(asDto(projectConfig));
+                final List<NewProjectConfigDto> configDtoList = asDto(projectConfigList);
+
+                return ps.createBatchProjects(configDtoList).thenPromise(new Function<List<ProjectConfigDto>, Promise<Project>>() {
                     @Override
                     public Promise<Project> apply(final List<ProjectConfigDto> configList) throws FunctionException {
 
@@ -456,14 +460,14 @@ public final class ResourceManager {
         });
     }
 
-    private CreateProjectConfigDto toCreateProjectConfig(MutableProjectConfig config) {
+    private NewProjectConfigDto asDto(MutableProjectConfig config) {
         final SourceStorage source = config.getSource();
         final SourceStorageDto sourceStorageDto = dtoFactory.createDto(SourceStorageDto.class)
                                                             .withType(source.getType())
                                                             .withLocation(source.getLocation())
                                                             .withParameters(source.getParameters());
 
-        return dtoFactory.createDto(CreateProjectConfigDto.class)
+        return dtoFactory.createDto(NewProjectConfigDto.class)
                          .withName(config.getName())
                          .withPath(config.getPath())
                          .withDescription(config.getDescription())
@@ -472,6 +476,28 @@ public final class ResourceManager {
                          .withMixins(config.getMixins())
                          .withAttributes(config.getAttributes())
                          .withOptions(config.getOptions());
+    }
+
+    private List<NewProjectConfigDto> asDto(List<NewProjectConfig> configList) {
+        List<NewProjectConfigDto> result = new ArrayList<>(configList.size());
+        for (NewProjectConfig config : configList) {
+            final SourceStorage source = config.getSource();
+            final SourceStorageDto sourceStorageDto = dtoFactory.createDto(SourceStorageDto.class)
+                                                                .withType(source.getType())
+                                                                .withLocation(source.getLocation())
+                                                                .withParameters(source.getParameters());
+
+            result.add(dtoFactory.createDto(NewProjectConfigDto.class)
+                                 .withName(config.getName())
+                                 .withPath(config.getPath())
+                                 .withDescription(config.getDescription())
+                                 .withSource(sourceStorageDto)
+                                 .withType(config.getType())
+                                 .withMixins(config.getMixins())
+                                 .withAttributes(config.getAttributes())
+                                 .withOptions(config.getOptions()));
+        }
+        return result;
     }
 
     protected Promise<Project> importProject(final Project.ProjectRequest importRequest) {

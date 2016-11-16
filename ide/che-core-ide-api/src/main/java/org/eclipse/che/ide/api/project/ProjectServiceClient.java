@@ -14,7 +14,7 @@ import org.eclipse.che.api.project.shared.dto.ItemReference;
 import org.eclipse.che.api.project.shared.dto.SourceEstimation;
 import org.eclipse.che.api.project.shared.dto.TreeElement;
 import org.eclipse.che.api.promises.client.Promise;
-import org.eclipse.che.api.workspace.shared.dto.CreateProjectConfigDto;
+import org.eclipse.che.api.workspace.shared.dto.NewProjectConfigDto;
 import org.eclipse.che.api.workspace.shared.dto.ProjectConfigDto;
 import org.eclipse.che.api.workspace.shared.dto.SourceStorageDto;
 import org.eclipse.che.ide.resource.Path;
@@ -96,8 +96,8 @@ public interface ProjectServiceClient {
     /**
      * Creates the batch of projects with given {@code configuration}s.
      * A project will be created by importing when project configuration contains {@link SourceStorageDto}
-     * object, otherwise this one will be created corresponding its {@link CreateProjectConfigDto}.
-     * For creating a project by generator {@link CreateProjectConfigDto#getOptions()}
+     * object, otherwise this one will be created corresponding its {@link org.eclipse.che.api.workspace.shared.dto.NewProjectConfigDto}.
+     * For creating a project by generator {@link org.eclipse.che.api.workspace.shared.dto.NewProjectConfigDto#getOptions()}
      * should be specified.
      *
      * @param configurations
@@ -105,7 +105,7 @@ public interface ProjectServiceClient {
      * @return {@link Promise} with the list of {@link ProjectConfigDto}
      * @see ProjectConfigDto
      */
-    Promise<List<ProjectConfigDto>> createBatchProjects(List<CreateProjectConfigDto> configurations);
+    Promise<List<ProjectConfigDto>> createBatchProjects(List<NewProjectConfigDto> configurations);
 
     /**
      * Returns the item description by given {@code path}.

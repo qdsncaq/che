@@ -26,7 +26,7 @@ import org.eclipse.che.api.promises.client.Promise;
 import org.eclipse.che.api.promises.client.PromiseError;
 import org.eclipse.che.api.promises.client.callback.AsyncPromiseHelper;
 import org.eclipse.che.api.promises.client.callback.PromiseHelper;
-import org.eclipse.che.api.workspace.shared.dto.CreateProjectConfigDto;
+import org.eclipse.che.api.workspace.shared.dto.NewProjectConfigDto;
 import org.eclipse.che.api.workspace.shared.dto.ProjectConfigDto;
 import org.eclipse.che.api.workspace.shared.dto.SourceStorageDto;
 import org.eclipse.che.ide.MimeType;
@@ -216,7 +216,7 @@ public class ProjectServiceClientImpl implements ProjectServiceClient {
     }
 
     @Override
-    public Promise<List<ProjectConfigDto>> createBatchProjects(List<CreateProjectConfigDto> configurations) {
+    public Promise<List<ProjectConfigDto>> createBatchProjects(List<NewProjectConfigDto> configurations) {
         final String url = getBaseUrl() + BATCH_PROJECTS;
         final String loaderMessage = configurations.size() > 1 ? "Creating the batch of projects..." : "Creating project...";
         return reqFactory.createPostRequest(url, configurations)

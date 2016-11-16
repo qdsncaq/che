@@ -12,17 +12,19 @@ package org.eclipse.che.api.project.server;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
+import org.eclipse.che.api.core.BadRequestException;
 import org.eclipse.che.api.core.ConflictException;
 import org.eclipse.che.api.core.ForbiddenException;
 import org.eclipse.che.api.core.NotFoundException;
 import org.eclipse.che.api.core.ServerException;
 import org.eclipse.che.api.core.UnauthorizedException;
-import org.eclipse.che.api.core.model.project.CreateProjectConfig;
+import org.eclipse.che.api.core.model.project.NewProjectConfig;
 import org.eclipse.che.api.core.model.project.ProjectConfig;
 import org.eclipse.che.api.core.model.project.SourceStorage;
 import org.eclipse.che.api.core.model.project.type.ProjectType;
 import org.eclipse.che.api.core.notification.EventService;
 import org.eclipse.che.api.core.util.LineConsumerFactory;
+import org.eclipse.che.api.project.server.RegisteredProject.Problem;
 import org.eclipse.che.api.project.server.handlers.CreateProjectHandler;
 import org.eclipse.che.api.project.server.handlers.ProjectHandlerRegistry;
 import org.eclipse.che.api.project.server.importer.ProjectImportOutputWSLineConsumer;
@@ -57,13 +59,14 @@ import java.io.IOException;
 import java.nio.file.PathMatcher;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.lang.String.format;
 
 /**
  * Facade for all project related operations.
@@ -197,7 +200,7 @@ public final class ProjectManager {
     public RegisteredProject getProject(String projectPath) throws ServerException, NotFoundException {
         final RegisteredProject project = projectRegistry.getProject(projectPath);
         if (project == null) {
-            throw new NotFoundException(String.format("Project '%s' doesn't exist.", projectPath));
+            throw new NotFoundException(format("Project '%s' doesn't exist.", projectPath));
         }
 
         return project;
@@ -225,6 +228,20 @@ public final class ProjectManager {
                                                                                                             NotFoundException {
         projectTreeChangesDetector.suspend();
         try {
+            // path and primary type is mandatory
+            if (projectConfig.getPath() == null) {
+                throw new ConflictException("Path for new project should be defined ");
+            }
+
+            if (projectConfig.getType() == null) {
+                throw new ConflictException("Project Type is not defined " + projectConfig.getPath());
+            }
+
+            final String path = ProjectRegistry.absolutizePath(projectConfig.getPath());
+            if (projectRegistry.getProject(path) != null) {
+                throw new ConflictException("Project config already exists for " + path);
+            }
+
             return doCreateProject(projectConfig, options);
         } finally {
             projectTreeChangesDetector.resume();
@@ -236,21 +253,7 @@ public final class ProjectManager {
                                                                                                                ForbiddenException,
                                                                                                                ServerException,
                                                                                                                NotFoundException {
-        // path and primary type is mandatory
-        if (projectConfig.getPath() == null) {
-            throw new ConflictException("Path for new project should be defined ");
-        }
-
         final String path = ProjectRegistry.absolutizePath(projectConfig.getPath());
-
-        if (projectConfig.getType() == null) {
-            throw new ConflictException("Project Type is not defined " + path);
-        }
-
-        if (projectRegistry.getProject(path) != null) {
-            throw new ConflictException("Project config already exists " + path);
-        }
-
         final CreateProjectHandler generator = handlers.getCreateProjectHandler(projectConfig.getType());
         FolderEntry projectFolder;
         if (generator != null) {
@@ -303,53 +306,57 @@ public final class ProjectManager {
      * Create batch of projects according to their configurations.
      * <p/>
      * A project will be created by importing when project configuration contains {@link SourceStorage} object,
-     * otherwise this one will be created corresponding its {@link CreateProjectConfig}.
-     * For creating a project by generator {@link CreateProjectConfig#getOptions()}
+     * otherwise this one will be created corresponding its {@link NewProjectConfig}.
+     * For creating a project by generator {@link NewProjectConfig#getOptions()}
      * should be specified.
      *
      * @param projectConfigList
      *         the list of configurations to create projects
+     * @param rewrite
+     *         whether rewrite or not (throw exception otherwise) if such a project exists
      * @return the list of new projects
      * @throws ConflictException
      * @throws ForbiddenException
      * @throws ServerException
      * @throws NotFoundException
      */
-    public List<RegisteredProject> createBatchProjects(List<? extends CreateProjectConfig> projectConfigList) throws ConflictException,
-                                                                                                                     ForbiddenException,
-                                                                                                                     ServerException,
-                                                                                                                     NotFoundException,
-                                                                                                                     IOException,
-                                                                                                                     UnauthorizedException {
+    public List<RegisteredProject> createBatchProjects(List<? extends NewProjectConfig> projectConfigList, boolean rewrite)
+            throws ConflictException, ForbiddenException, ServerException, NotFoundException, IOException, UnauthorizedException,
+                   BadRequestException {
         projectTreeChangesDetector.suspend();
         try {
-            List<RegisteredProject> projects = new ArrayList<>(projectConfigList.size());
-            Iterator<? extends CreateProjectConfig> iterator = projectConfigList.iterator();
+            validateProjectConfigurations(projectConfigList, rewrite);
 
-            while (iterator.hasNext()) {
-                final CreateProjectConfig projectConfig = iterator.next();
-                final String path = projectConfig.getPath();
+            final List<NewProjectConfig> sortedConfigList = projectConfigList
+                    .stream()
+                    .sorted((config1, config2) -> config1.getPath().compareTo(config2.getPath()))
+                    .collect(Collectors.toList());
 
-                final SourceStorage sourceStorage = projectConfig.getSource();
-                if (sourceStorage != null && !isNullOrEmpty(sourceStorage.getLocation())) {
-                    checkParentExist(path);
+            final List<RegisteredProject> projects = new ArrayList<>(projectConfigList.size());
+            for (NewProjectConfig projectConfig : sortedConfigList) {
 
-                    final RegisteredProject registeredProject = doImportProject(path, sourceStorage, true);
-                    projects.add(registeredProject);
-                    iterator.remove();
-                }
-            }
-
-            for (CreateProjectConfig projectConfig : projectConfigList) {
                 final String pathToProject = projectConfig.getPath();
                 checkParentExist(pathToProject);
 
                 RegisteredProject registeredProject;
+                final SourceStorage sourceStorage = projectConfig.getSource();
                 final VirtualFileEntry projectFileEntry = getProjectsRoot().getChild(pathToProject);
-                if (projectFileEntry != null) {
+                if (sourceStorage != null && !isNullOrEmpty(sourceStorage.getLocation())) {
+
+                    try {
+                        doImportProject(pathToProject, sourceStorage, rewrite);
+                        registeredProject = updateProject(projectConfig);
+                    } catch (Exception e) {
+                        registeredProject = doCreateProject(projectConfig, projectConfig.getOptions());
+                        registeredProject.getProblems().add(new Problem(10, "No source"));
+                    }
+
+                } else if (projectFileEntry != null) {
                     registeredProject = updateProject(projectConfig);
                 } else {
+                    final List<Problem> problems = validateProjectTypeFor(projectConfig);
                     registeredProject = doCreateProject(projectConfig, projectConfig.getOptions());
+                    registeredProject.getProblems().addAll(problems);
                 }
 
                 projects.add(registeredProject);
@@ -366,9 +373,63 @@ public final class ProjectManager {
         if (!pathToParent.equals("/")) {
             VirtualFileEntry parentFileEntry = getProjectsRoot().getChild(pathToParent);
             if (parentFileEntry == null) {
-                throw new NotFoundException(String.format("The parent folder with path %s does not exist.", pathToParent));
+                throw new NotFoundException(format("The parent folder with path %s does not exist.", pathToParent));
             }
         }
+    }
+
+
+    private void validateProjectConfigurations(List<? extends NewProjectConfig> projectConfigList, boolean rewrite)
+            throws NotFoundException, ServerException, ConflictException, ForbiddenException, BadRequestException {
+
+        for (NewProjectConfig projectConfig : projectConfigList) {
+            final String pathToProject = projectConfig.getPath();
+            if (isNullOrEmpty(pathToProject)) {
+                throw new BadRequestException("Path for new project should be defined");
+            }
+
+            final String pathToParent = pathToProject.substring(0, pathToProject.lastIndexOf("/"));
+            final String path = ProjectRegistry.absolutizePath(pathToParent);
+            final RegisteredProject registeredProject = projectRegistry.getProject(path);
+            if (registeredProject != null && rewrite) {
+                delete(path);
+            } else if (registeredProject != null) {
+                throw new ConflictException(format("Project config already exists for %s", path));
+            }
+
+            final String projectTypeId = projectConfig.getType();
+            if (isNullOrEmpty(projectTypeId)) {
+                projectConfig.setType(BaseProjectType.ID);
+            }
+        }
+    }
+
+    private List<Problem> validateProjectTypeFor(NewProjectConfig projectConfig) throws NotFoundException {
+        final List<Problem> problems = new ArrayList<>();
+        final String path = projectConfig.getPath();
+        final String projectTypeId = projectConfig.getType();
+
+        final ProjectTypeDef projectType = projectTypeRegistry.getProjectType(projectTypeId);
+        if (projectType == null) {
+            projectConfig.setType(BaseProjectType.ID);
+            problems.add(new Problem(12, format("Primary type %s defined for %s is not registered. Base Project Type assigned.",
+                                                projectTypeId, path)));
+        }
+
+        final List<String> mixins = projectConfig.getMixins();
+        for (String mixin : mixins) {
+            final ProjectTypeDef mixinType = projectTypeRegistry.getProjectType(mixin);
+            if (mixinType == null) {
+                problems.add(new Problem(12, format("Project type %s is not registered. Skipped.", mixin)));
+                mixins.remove(mixin);
+            } else {
+                if (!mixinType.isMixable()) {
+                    problems.add(new Problem(12, "Project type " + mixin + " is not allowable to be mixin. It not mixable. Skipped."));
+                    mixins.remove(mixin);
+                }
+            }
+        }
+        return problems;
     }
 
     /**
@@ -402,7 +463,7 @@ public final class ProjectManager {
 
         // If a project does not exist in the target path, create a new one
         if (baseFolder == null) {
-            throw new NotFoundException(String.format("Folder '%s' doesn't exist.", path));
+            throw new NotFoundException(format("Folder '%s' doesn't exist.", path));
         }
 
         ProjectConfig oldConfig = projectRegistry.getProject(path);
@@ -467,8 +528,8 @@ public final class ProjectManager {
                                                                                                                 NotFoundException {
         final ProjectImporter importer = importers.getImporter(sourceStorage.getType());
         if (importer == null) {
-            throw new NotFoundException(String.format("Unable import sources project from '%s'. Sources type '%s' is not supported.",
-                                                      sourceStorage.getLocation(), sourceStorage.getType()));
+            throw new NotFoundException(format("Unable import sources project from '%s'. Sources type '%s' is not supported.",
+                                               sourceStorage.getLocation(), sourceStorage.getType()));
         }
 
         // Preparing websocket output publisher to broadcast output of import process to the ide clients while importing
@@ -478,7 +539,7 @@ public final class ProjectManager {
         String normalizePath = (path.startsWith("/")) ? path : "/".concat(path);
         FolderEntry folder = asFolder(normalizePath);
         if (folder != null && !rewrite) {
-            throw new ConflictException(String.format("Project %s already exists ", path));
+            throw new ConflictException(format("Project %s already exists ", path));
         }
 
         if (folder == null) {
@@ -508,7 +569,7 @@ public final class ProjectManager {
         }
 
         RegisteredProject rp = projectRegistry
-                .putProject(new NewProjectConfig(normalizePath, name, BaseProjectType.ID, sourceStorage), folder, true, false);
+                .putProject(new org.eclipse.che.api.project.server.NewProjectConfig(normalizePath, name, BaseProjectType.ID, sourceStorage), folder, true, false);
         workspaceProjectsHolder.sync(projectRegistry);
         return rp;
     }
@@ -697,7 +758,8 @@ public final class ProjectManager {
 
         if (move.isProject()) {
             final RegisteredProject project = projectRegistry.getProject(itemPath);
-            NewProjectConfig projectConfig = new NewProjectConfig(newItem.getPath().toString(),
+            org.eclipse.che.api.project.server.NewProjectConfig
+                    projectConfig = new org.eclipse.che.api.project.server.NewProjectConfig(newItem.getPath().toString(),
                                                                   project.getType(),
                                                                   project.getMixins(),
                                                                   newName,
@@ -721,7 +783,7 @@ public final class ProjectManager {
         }
 
         if (!entry.isFolder()) {
-            throw new NotFoundException(String.format("Item '%s' isn't a folder. ", path));
+            throw new NotFoundException(format("Item '%s' isn't a folder. ", path));
         }
 
         return (FolderEntry)entry;
@@ -740,7 +802,7 @@ public final class ProjectManager {
         }
 
         if (!entry.isFile()) {
-            throw new NotFoundException(String.format("Item '%s' isn't a file. ", path));
+            throw new NotFoundException(format("Item '%s' isn't a file. ", path));
         }
 
         return (FileEntry)entry;
@@ -767,7 +829,7 @@ public final class ProjectManager {
                 }
                 searcher.add(file);
             } catch (Exception e) {
-                LOG.warn(String.format("Project: %s", project.getPath()), e.getMessage());
+                LOG.warn(format("Project: %s", project.getPath()), e.getMessage());
             }
         });
     }

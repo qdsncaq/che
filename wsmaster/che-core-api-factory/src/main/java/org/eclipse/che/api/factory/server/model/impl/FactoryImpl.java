@@ -27,6 +27,7 @@ import javax.persistence.Column;
 import javax.persistence.ElementCollection;
 import javax.persistence.Embedded;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.OneToOne;
@@ -66,6 +67,12 @@ public class FactoryImpl implements Factory {
 
     @Embedded
     private AuthorImpl creator;
+
+    // Mapping exists for explicit constraints which allows
+    // jpa backend to perform operations in correct order
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(insertable = false, updatable = false, name = "userid")
+    private UserImpl userEntity;
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "button_id")

@@ -30,11 +30,11 @@ import java.util.stream.Stream;
 import static java.lang.String.format;
 
 /**
- * The listener is designed to instantiate {@link TckModule jpa modules}
+ * The listener is designed to instantiate {@link TckModule tck modules}
  * using {@link ServiceLoader} mechanism. The components  provided by those
  * modules will be injected into a test class whether it's necessary to do so.
  * For each test class will be used new instance of injector.
- * Listener requires jpa test to be in own separated suite, if it finds more tests
+ * Listener requires tck test to be in own separated suite, if it finds more tests
  * in suite it'll throw {@link IllegalArgumentException} on suite start.
  * After test suite is finished listener'll try to find test specific or common
  * instance of {@link TckResourcesCleaner}. It is optional and can be bound in modules.

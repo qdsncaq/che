@@ -16,6 +16,7 @@ import org.eclipse.che.api.core.model.workspace.Workspace;
 import org.eclipse.che.api.core.model.workspace.WorkspaceConfig;
 import org.eclipse.che.api.core.model.workspace.WorkspaceRuntime;
 import org.eclipse.che.api.core.model.workspace.WorkspaceStatus;
+import org.eclipse.che.api.machine.server.model.impl.SnapshotImpl;
 import org.eclipse.che.api.workspace.server.jpa.WorkspaceEntityListener;
 import org.eclipse.che.commons.lang.NameGenerator;
 import org.eclipse.persistence.descriptors.DescriptorEvent;
@@ -34,12 +35,14 @@ import javax.persistence.ManyToOne;
 import javax.persistence.MapKeyColumn;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
+import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
 import javax.persistence.PrePersist;
 import javax.persistence.PreUpdate;
 import javax.persistence.Table;
 import javax.persistence.Transient;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -95,6 +98,13 @@ public class WorkspaceImpl implements Workspace {
     @ManyToOne
     @JoinColumn(name = "accountid", nullable = false)
     private AccountImpl account;
+
+    // This mapping is for explicit constraint between
+    // snapshots and workspace, it's impossible to do so on snapshot side
+    // as workspace and machine are different modules and cyclic reference will appear.
+    @OneToMany(fetch = FetchType.LAZY)
+    @JoinColumn(name = "workspaceId", insertable = false, updatable = false)
+    private List<SnapshotImpl> snapshots;
 
     @Transient
     private WorkspaceStatus status;

@@ -19,14 +19,11 @@ import org.eclipse.che.api.core.rest.CheJsonProvider;
 import org.eclipse.che.api.core.rest.MessageBodyAdapter;
 import org.eclipse.che.api.core.rest.MessageBodyAdapterInterceptor;
 import org.eclipse.che.api.machine.shared.Constants;
-import org.eclipse.che.api.user.server.CheUserCreator;
 import org.eclipse.che.api.user.server.TokenValidator;
 import org.eclipse.che.api.workspace.server.WorkspaceConfigMessageBodyAdapter;
 import org.eclipse.che.api.workspace.server.WorkspaceMessageBodyAdapter;
 import org.eclipse.che.api.workspace.server.stack.StackMessageBodyAdapter;
-import org.eclipse.che.core.db.h2.H2DataSourceProvider;
 import org.eclipse.che.core.db.schema.SchemaInitializer;
-import org.eclipse.che.core.db.schema.impl.flyway.PlaceholderReplacerProvider;
 import org.eclipse.che.inject.DynaModule;
 import org.flywaydb.core.internal.util.PlaceholderReplacer;
 
@@ -48,12 +45,13 @@ public class WsMasterModule extends AbstractModule {
         install(new org.eclipse.che.api.machine.server.jpa.MachineJpaModule());
         install(new org.eclipse.che.api.workspace.server.jpa.WorkspaceJpaModule());
 
-        bind(DataSource.class).toProvider(H2DataSourceProvider.class);
+        // db configuration
+        bind(DataSource.class).toProvider(org.eclipse.che.core.db.h2.H2DataSourceProvider.class);
         bind(SchemaInitializer.class).to(org.eclipse.che.core.db.schema.impl.flyway.FlywaySchemaInitializer.class);
         bind(org.eclipse.che.core.db.DBInitializer.class).asEagerSingleton();
-        bind(PlaceholderReplacer.class).toProvider(PlaceholderReplacerProvider.class);
+        bind(PlaceholderReplacer.class).toProvider(org.eclipse.che.core.db.schema.impl.flyway.PlaceholderReplacerProvider.class);
 
-        bind(CheUserCreator.class);
+        bind(org.eclipse.che.api.user.server.CheUserCreator.class);
 
         bind(TokenValidator.class).to(org.eclipse.che.api.local.DummyTokenValidator.class);
         bind(org.eclipse.che.api.local.LocalDataMigrator.class).asEagerSingleton();

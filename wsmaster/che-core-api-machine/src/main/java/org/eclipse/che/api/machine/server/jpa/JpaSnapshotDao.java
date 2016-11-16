@@ -145,7 +145,6 @@ public class JpaSnapshotDao implements SnapshotDao {
             throw new NotFoundException(format("Snapshot with id '%s' doesn't exist", snapshotId));
         }
         manager.remove(snapshot);
-        manager.flush();
     }
 
     @Transactional

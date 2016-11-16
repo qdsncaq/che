@@ -13,9 +13,9 @@ package org.eclipse.che.ide.projecttype.wizard.categoriespage;
 import com.google.gwt.user.client.ui.AcceptsOneWidget;
 import com.google.inject.Inject;
 
+import org.eclipse.che.api.core.model.project.NewProjectConfig;
 import org.eclipse.che.api.project.shared.dto.ProjectTypeDto;
 import org.eclipse.che.api.project.templates.shared.dto.ProjectTemplateDescriptor;
-import org.eclipse.che.api.workspace.shared.dto.CreateProjectConfigDto;
 import org.eclipse.che.ide.api.app.AppContext;
 import org.eclipse.che.ide.api.project.MutableProjectConfig;
 import org.eclipse.che.ide.api.project.type.ProjectTemplateRegistry;
@@ -168,12 +168,12 @@ public class CategoriesPagePresenter extends AbstractWizardPage<MutableProjectCo
 
     @Override
     public void projectNameChanged(String name) {
-        String currentProjectPath = dataObject.getPath();
-        String newProjectPath = originParent.append(name).toString();
+        final String currentProjectPath = dataObject.getPath();
+        final String newProjectPath = originParent.append(name).toString();
 
-        List<CreateProjectConfigDto> projectConfigList = dataObject.getProjects();
-        for (CreateProjectConfigDto projectConfig : projectConfigList) {
-            String projectPath = projectConfig.getPath();
+        final List<NewProjectConfig> projectConfigList = dataObject.getProjects();
+        for (NewProjectConfig projectConfig : projectConfigList) {
+            final String projectPath = projectConfig.getPath();
             if (projectPath.startsWith(currentProjectPath)) {
                 String path = projectPath.replaceFirst(currentProjectPath, newProjectPath);
                 projectConfig.setPath(path);

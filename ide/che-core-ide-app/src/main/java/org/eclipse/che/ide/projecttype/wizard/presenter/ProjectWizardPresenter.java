@@ -14,24 +14,27 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
 
+import org.eclipse.che.api.core.model.project.NewProjectConfig;
 import org.eclipse.che.api.project.shared.dto.AttributeDto;
 import org.eclipse.che.api.project.shared.dto.ProjectTypeDto;
 import org.eclipse.che.api.project.templates.shared.dto.ProjectTemplateDescriptor;
+import org.eclipse.che.api.workspace.shared.dto.NewProjectConfigDto;
 import org.eclipse.che.commons.annotation.Nullable;
 import org.eclipse.che.ide.api.dialogs.DialogFactory;
+import org.eclipse.che.ide.api.project.NewProjectConfigImpl;
 import org.eclipse.che.ide.api.project.MutableProjectConfig;
 import org.eclipse.che.ide.api.project.type.wizard.ProjectWizardMode;
 import org.eclipse.che.ide.api.project.type.wizard.ProjectWizardRegistrar;
 import org.eclipse.che.ide.api.project.type.wizard.ProjectWizardRegistry;
 import org.eclipse.che.ide.api.wizard.Wizard;
 import org.eclipse.che.ide.api.wizard.WizardPage;
-import org.eclipse.che.ide.dto.DtoFactory;
 import org.eclipse.che.ide.projecttype.wizard.ProjectWizard;
 import org.eclipse.che.ide.projecttype.wizard.ProjectWizardFactory;
 import org.eclipse.che.ide.projecttype.wizard.categoriespage.CategoriesPagePresenter;
 import org.eclipse.che.ide.resource.Path;
 
 import javax.validation.constraints.NotNull;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +62,6 @@ public class ProjectWizardPresenter implements Wizard.UpdateDelegate,
     private final ProjectWizardFactory               projectWizardFactory;
     private final ProjectWizardRegistry              wizardRegistry;
     private final Provider<CategoriesPagePresenter>  categoriesPageProvider;
-    private final DtoFactory                         dtoFactory;
     private final DialogFactory                      dialogFactory;
     private final Map<ProjectTypeDto, ProjectWizard> wizardsCache;
     private       CategoriesPagePresenter            categoriesPage;
@@ -74,13 +76,11 @@ public class ProjectWizardPresenter implements Wizard.UpdateDelegate,
                                   ProjectWizardFactory projectWizardFactory,
                                   ProjectWizardRegistry wizardRegistry,
                                   Provider<CategoriesPagePresenter> categoriesPageProvider,
-                                  DtoFactory dtoFactory,
                                   DialogFactory dialogFactory) {
         this.view = view;
         this.projectWizardFactory = projectWizardFactory;
         this.wizardRegistry = wizardRegistry;
         this.categoriesPageProvider = categoriesPageProvider;
-        this.dtoFactory = dtoFactory;
         this.dialogFactory = dialogFactory;
         wizardsCache = new HashMap<>();
         view.setDelegate(this);
@@ -210,18 +210,18 @@ public class ProjectWizardPresenter implements Wizard.UpdateDelegate,
 
     @Override
     public void onProjectTemplateSelected(ProjectTemplateDescriptor projectTemplate) {
-        //we should not change the original object - so we create copy of this one
-        projectTemplate = dtoFactory.createDtoFromJson(dtoFactory.toJson(projectTemplate), ProjectTemplateDescriptor.class);
-
         final MutableProjectConfig dataObject = wizard.getDataObject();
         wizard = importWizard == null ? importWizard = createDefaultWizard(dataObject, IMPORT) : importWizard;
         wizard.navigateToFirst();
 
         // set dataObject's values from projectTemplate
-        dataObject.setPath(projectTemplate.getPath());
-        dataObject.setType(projectTemplate.getProjectType());
-        dataObject.setSource(projectTemplate.getSource());
-        dataObject.setProjects(projectTemplate.getProjects());
+        final NewProjectConfig newProjectConfig = new NewProjectConfigImpl(projectTemplate);
+        dataObject.setPath(newProjectConfig.getPath());
+        dataObject.setType(newProjectConfig.getType());
+        dataObject.setSource(newProjectConfig.getSource());
+
+        final List<NewProjectConfig> projects = toNewProjectConfig(projectTemplate.getProjects());
+        dataObject.setProjects(projects);
     }
 
     /** Creates or returns project wizard for the specified projectType with the given dataObject. */
@@ -260,5 +260,13 @@ public class ProjectWizardPresenter implements Wizard.UpdateDelegate,
         currentPage = wizardPage;
         updateControls();
         view.showPage(currentPage);
+    }
+
+    private List<NewProjectConfig> toNewProjectConfig(List<NewProjectConfigDto> configDtoList) {
+        List<NewProjectConfig> result = new ArrayList<>(configDtoList.size());
+        for (NewProjectConfigDto configDto : configDtoList) {
+            result.add(new NewProjectConfigImpl(configDto));
+        }
+        return result;
     }
 }

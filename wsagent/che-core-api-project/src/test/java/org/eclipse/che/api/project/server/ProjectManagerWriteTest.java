@@ -14,7 +14,7 @@ import org.eclipse.che.api.core.ConflictException;
 import org.eclipse.che.api.core.ForbiddenException;
 import org.eclipse.che.api.core.NotFoundException;
 import org.eclipse.che.api.core.ServerException;
-import org.eclipse.che.api.core.model.project.CreateProjectConfig;
+import org.eclipse.che.api.core.model.project.NewProjectConfig;
 import org.eclipse.che.api.core.model.project.ProjectConfig;
 import org.eclipse.che.api.core.model.project.SourceStorage;
 import org.eclipse.che.api.core.notification.EventSubscriber;
@@ -26,7 +26,7 @@ import org.eclipse.che.api.project.server.type.AttributeValue;
 import org.eclipse.che.api.project.server.type.BaseProjectType;
 import org.eclipse.che.api.project.server.type.Variable;
 import org.eclipse.che.api.vfs.Path;
-import org.eclipse.che.api.workspace.shared.dto.CreateProjectConfigDto;
+import org.eclipse.che.api.workspace.shared.dto.NewProjectConfigDto;
 import org.eclipse.che.api.workspace.shared.dto.ProjectConfigDto;
 import org.eclipse.che.api.workspace.shared.dto.SourceStorageDto;
 import org.eclipse.che.dto.server.DtoFactory;
@@ -75,10 +75,10 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         final String projectPath1 = "/testProject1";
         final String projectPath2 = "/testProject2";
 
-        CreateProjectConfig config1 = createProjectConfigObject("testProject1", projectPath1, "blank", null);
-        CreateProjectConfig config2 = createProjectConfigObject("testProject2", projectPath2, "blank", null);
+        org.eclipse.che.api.core.model.project.NewProjectConfig config1 = createProjectConfigObject("testProject1", projectPath1, "blank", null);
+        NewProjectConfig config2 = createProjectConfigObject("testProject2", projectPath2, "blank", null);
 
-        List<CreateProjectConfig> configs = new ArrayList<>(2);
+        List<NewProjectConfig> configs = new ArrayList<>(2);
         configs.add(config1);
         configs.add(config2);
 
@@ -120,12 +120,12 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         registerImporter(importType2, zip);
 
         SourceStorageDto source1 = DtoFactory.newDto(SourceStorageDto.class).withLocation("someLocation").withType(importType1);
-        CreateProjectConfigDto config1 = createProjectConfigObject("testProject1", projectPath1, "blank", source1);
+        NewProjectConfigDto config1 = createProjectConfigObject("testProject1", projectPath1, "blank", source1);
 
         SourceStorageDto source2 = DtoFactory.newDto(SourceStorageDto.class).withLocation("someLocation").withType(importType2);
-        CreateProjectConfigDto config2 = createProjectConfigObject("testProject2", projectPath2, "blank", source2);
+        NewProjectConfigDto config2 = createProjectConfigObject("testProject2", projectPath2, "blank", source2);
 
-        List<CreateProjectConfig> configs = new ArrayList<>(2);
+        List<org.eclipse.che.api.core.model.project.NewProjectConfig> configs = new ArrayList<>(2);
         configs.add(config1);
         configs.add(config2);
 
@@ -186,11 +186,11 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         registerImporter(importType, zip);
 
         SourceStorageDto source = DtoFactory.newDto(SourceStorageDto.class).withLocation("someLocation").withType(importType);
-        CreateProjectConfigDto config1 = createProjectConfigObject("testProject1", projectPath1, BaseProjectType.ID, source);
-        CreateProjectConfigDto config2 = createProjectConfigObject("innerProject", projectPath2, projectType2, null);
+        NewProjectConfigDto config1 = createProjectConfigObject("testProject1", projectPath1, BaseProjectType.ID, source);
+        NewProjectConfigDto config2 = createProjectConfigObject("innerProject", projectPath2, projectType2, null);
         config2.setAttributes(attributes);
 
-        List<CreateProjectConfig> configs = new ArrayList<>(2);
+        List<NewProjectConfig> configs = new ArrayList<>(2);
         configs.add(config1);
         configs.add(config2);
 
@@ -252,11 +252,11 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         registerImporter(importType, zip);
 
         SourceStorageDto source = DtoFactory.newDto(SourceStorageDto.class).withLocation("someLocation").withType(importType);
-        CreateProjectConfigDto config1 = createProjectConfigObject("testProject1", projectPath1, BaseProjectType.ID, source);
-        CreateProjectConfigDto config2 = createProjectConfigObject("innerProject", projectPath2, projectType2, source);
+        NewProjectConfigDto config1 = createProjectConfigObject("testProject1", projectPath1, BaseProjectType.ID, source);
+        NewProjectConfigDto config2 = createProjectConfigObject("innerProject", projectPath2, projectType2, source);
         config2.setAttributes(attributes);
 
-        List<CreateProjectConfig> configs = new ArrayList<>(2);
+        List<NewProjectConfig> configs = new ArrayList<>(2);
         configs.add(config1);
         configs.add(config2);
 
@@ -287,11 +287,38 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         assertEquals(file2Content, projectFolder2.getChild("file2").getVirtualFile().getContentAsString());
     }
 
-    private CreateProjectConfigDto createProjectConfigObject(String projectName,
+    @Test
+    public void testCreateBatchProjectsWithInnerProject3() throws Exception {
+        SourceStorageDto source = DtoFactory.newDto(SourceStorageDto.class).withLocation("someLocation").withType("");
+        NewProjectConfigDto config1 = createProjectConfigObject("1", "/1", BaseProjectType.ID, source);
+        NewProjectConfigDto config2 = createProjectConfigObject("2", "/2", "", source);
+        NewProjectConfigDto config3 = createProjectConfigObject("3", "/1/a", "", source);
+        NewProjectConfigDto config4 = createProjectConfigObject("4", "/1/d", "", source);
+        NewProjectConfigDto config5 = createProjectConfigObject("5", "/1/z", "", source);
+        NewProjectConfigDto config6 = createProjectConfigObject("6", "/2/z", "", source);
+
+        List<org.eclipse.che.api.core.model.project.NewProjectConfig> configs = new ArrayList<>(2);
+        configs.add(config6);
+        configs.add(config5);
+        configs.add(config4);
+        configs.add(config3);
+        configs.add(config1);
+        configs.add(config2);
+
+
+
+
+        pm.createBatchProjects(configs, false);
+
+        RegisteredProject project1 = projectRegistry.getProject("");
+
+    }
+
+    private NewProjectConfigDto createProjectConfigObject(String projectName,
                                                              String projectPath,
                                                              String projectType,
                                                              SourceStorageDto sourceStorage) {
-        return DtoFactory.newDto(CreateProjectConfigDto.class)
+        return DtoFactory.newDto(NewProjectConfigDto.class)
                          .withPath(projectPath)
                          .withName(projectName)
                          .withType(projectType)
@@ -328,7 +355,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
     @Test
     public void testCreateProjectInvalidAttribute() throws Exception {
 
-        ProjectConfig pc = new NewProjectConfig("/testCreateProjectInvalidAttributes", "pt2", null, "name", "descr", null, null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testCreateProjectInvalidAttributes", "pt2", null, "name", "descr", null, null);
 
         try {
             pm.createProject(pc, null);
@@ -350,7 +377,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         Map<String, List<String>> attributes = new HashMap<>();
         attributes.put("pt2-var2", new AttributeValue("test").getList());
         ProjectConfig pc =
-                new NewProjectConfig("/testCreateProjectWithRequiredProvidedAttribute", "pt3", null, "name", "descr", attributes, null);
+                new org.eclipse.che.api.project.server.NewProjectConfig("/testCreateProjectWithRequiredProvidedAttribute", "pt3", null, "name", "descr", attributes, null);
 
         pm.createProject(pc, null);
 
@@ -367,7 +394,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         // SPECS:
         // If there are no respective CreateProjectHandler ServerException will be thrown
 
-        ProjectConfig pc = new NewProjectConfig("/testFailCreateProjectWithNoRequiredGenerator", "pt4", null, "name", "descr", null, null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testFailCreateProjectWithNoRequiredGenerator", "pt4", null, "name", "descr", null, null);
 
         try {
             pm.createProject(pc, null);
@@ -385,11 +412,11 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         // SPECS:
         // If there is a project with the same path ConflictException will be thrown on create project
 
-        ProjectConfig pc = new NewProjectConfig("/testSamePathProjectCreateFailed", "blank", null, "name", "descr", null, null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testSamePathProjectCreateFailed", "blank", null, "name", "descr", null, null);
 
         pm.createProject(pc, null);
 
-        pc = new NewProjectConfig("/testSamePathProjectCreateFailed", "blank", null, "name", "descr", null, null);
+        pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testSamePathProjectCreateFailed", "blank", null, "name", "descr", null, null);
 
         try {
             pm.createProject(pc, null);
@@ -408,7 +435,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         // If either primary or some mixin project type is not registered in PT registry
         // project creation failed with NotFoundException
 
-        ProjectConfig pc = new NewProjectConfig("/testInvalidPTProjectCreateFailed", "invalid", null, "name", "descr", null, null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testInvalidPTProjectCreateFailed", "invalid", null, "name", "descr", null, null);
 
         try {
             pm.createProject(pc, null);
@@ -424,7 +451,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         List<String> ms = new ArrayList<>();
         ms.add("invalid");
 
-        pc = new NewProjectConfig("/testInvalidPTProjectCreateFailed", "blank", ms, "name", "descr", null, null);
+        pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testInvalidPTProjectCreateFailed", "blank", ms, "name", "descr", null, null);
 
         try {
             pm.createProject(pc, null);
@@ -446,7 +473,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         List<String> ms = new ArrayList<>();
         ms.add("m2");
 
-        ProjectConfig pc = new NewProjectConfig("/testConflictAttributesProjectCreateFailed", "pt2", ms, "name", "descr", null, null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testConflictAttributesProjectCreateFailed", "pt2", ms, "name", "descr", null, null);
         try {
             pm.createProject(pc, null);
             fail("ProjectTypeConstraintException: Attribute name conflict. Duplicated attributes detected /testConflictAttributesProjectCreateFailed Attribute pt2-const1 declared in m2 already declared in pt2");
@@ -466,7 +493,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         // If project path is not defined
         // Project creation failed with ConflictException
 
-        ProjectConfig pc = new NewProjectConfig(null, "pt2", null, "name", "descr", null, null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig(null, "pt2", null, "name", "descr", null, null);
 
         try {
             pm.createProject(pc, null);
@@ -480,10 +507,10 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
 
     @Test
     public void testCreateInnerProject() throws Exception {
-        ProjectConfig pc = new NewProjectConfig("/testCreateInnerProject", BaseProjectType.ID, null, "name", "descr", null, null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testCreateInnerProject", BaseProjectType.ID, null, "name", "descr", null, null);
         pm.createProject(pc, null);
 
-        pc = new NewProjectConfig("/testCreateInnerProject/inner", BaseProjectType.ID, null, "name", "descr", null, null);
+        pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testCreateInnerProject/inner", BaseProjectType.ID, null, "name", "descr", null, null);
         pm.createProject(pc, null);
 
         assertNotNull(projectRegistry.getProject("/testCreateInnerProject/inner"));
@@ -492,7 +519,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
 
         // If there are no parent folder it will be created
 
-        pc = new NewProjectConfig("/nothing/inner", BaseProjectType.ID, null, "name", "descr", null, null);
+        pc = new org.eclipse.che.api.project.server.NewProjectConfig("/nothing/inner", BaseProjectType.ID, null, "name", "descr", null, null);
 
         pm.createProject(pc, null);
         assertNotNull(projectRegistry.getProject("/nothing/inner"));
@@ -505,14 +532,14 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
     public void testUpdateProjectWithPersistedAttributes() throws Exception {
         Map<String, List<String>> attributes = new HashMap<>();
 
-        ProjectConfig pc = new NewProjectConfig("/testUpdateProject", BaseProjectType.ID, null, "name", "descr", null, null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testUpdateProject", BaseProjectType.ID, null, "name", "descr", null, null);
         RegisteredProject p = pm.createProject(pc, null);
 
         assertEquals(BaseProjectType.ID, p.getType());
         assertEquals("name", p.getName());
 
         attributes.put("pt2-var2", new AttributeValue("updated").getList());
-        ProjectConfig pc1 = new NewProjectConfig("/testUpdateProject", "pt2", null, "updatedName", "descr", attributes, null);
+        ProjectConfig pc1 = new org.eclipse.che.api.project.server.NewProjectConfig("/testUpdateProject", "pt2", null, "updatedName", "descr", attributes, null);
 
         p = pm.updateProject(pc1);
 
@@ -529,14 +556,14 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         Map<String, List<String>> attributes = new HashMap<>();
         attributes.put("pt2-var2", new AttributeValue("test").getList());
 
-        ProjectConfig pc = new NewProjectConfig("/testUpdateProject", "pt2", null, "name", "descr", attributes, null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testUpdateProject", "pt2", null, "name", "descr", attributes, null);
         RegisteredProject p = pm.createProject(pc, null);
 
         // SPECS:
         // If project type is updated with one required provided attributes
         // those attributes should be provided before update
 
-        pc = new NewProjectConfig("/testUpdateProject", "pt3", null, "updatedName", "descr", attributes, null);
+        pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testUpdateProject", "pt3", null, "updatedName", "descr", attributes, null);
 
         try {
             pm.updateProject(pc);
@@ -556,7 +583,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
     @Test
     public void testUpdateProjectOnRawFolder() throws Exception {
 
-        ProjectConfig pc = new NewProjectConfig("/testUpdateProjectOnRawFolder", BaseProjectType.ID, null, "name", "descr", null, null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testUpdateProjectOnRawFolder", BaseProjectType.ID, null, "name", "descr", null, null);
         pm.createProject(pc, null);
         String folderPath = "/testUpdateProjectOnRawFolder/folder";
         pm.getProjectsRoot().createFolder(folderPath);
@@ -564,7 +591,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         // SPECS:
         // If update is called on raw folder new project should be created
 
-        pc = new NewProjectConfig(folderPath, BaseProjectType.ID, null, "raw", "descr", null, null);
+        pc = new org.eclipse.che.api.project.server.NewProjectConfig(folderPath, BaseProjectType.ID, null, "raw", "descr", null, null);
         pm.updateProject(pc);
 
         assertEquals(BaseProjectType.ID, pm.getProject(folderPath).getType());
@@ -575,7 +602,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
     @Test
     public void testInvalidUpdateConfig() throws Exception {
 
-        ProjectConfig pc = new NewProjectConfig(null, BaseProjectType.ID, null, "name", "descr", null, null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig(null, BaseProjectType.ID, null, "name", "descr", null, null);
 
         try {
             pm.updateProject(pc);
@@ -583,7 +610,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         } catch (ConflictException e) {
         }
 
-        pc = new NewProjectConfig("/nothing", BaseProjectType.ID, null, "name", "descr", null, null);
+        pc = new org.eclipse.che.api.project.server.NewProjectConfig("/nothing", BaseProjectType.ID, null, "name", "descr", null, null);
         try {
             pm.updateProject(pc);
             fail("NotFoundException: Project '/nothing' doesn't exist.");
@@ -595,9 +622,9 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
     @Test
     public void testDeleteProject() throws Exception {
 
-        ProjectConfig pc = new NewProjectConfig("/testDeleteProject", BaseProjectType.ID, null, "name", "descr", null, null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testDeleteProject", BaseProjectType.ID, null, "name", "descr", null, null);
         pm.createProject(pc, null);
-        pc = new NewProjectConfig("/testDeleteProject/inner", BaseProjectType.ID, null, "name", "descr", null, null);
+        pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testDeleteProject/inner", BaseProjectType.ID, null, "name", "descr", null, null);
         pm.createProject(pc, null);
 
         assertNotNull(projectRegistry.getProject("/testDeleteProject/inner"));
@@ -614,7 +641,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
     @Test
     public void testDeleteProjectEvent() throws Exception {
 
-        ProjectConfig pc = new NewProjectConfig("/testDeleteProject", BaseProjectType.ID, null, "name", "descr", null, null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testDeleteProject", BaseProjectType.ID, null, "name", "descr", null, null);
         pm.createProject(pc, null);
 
         String[] deletedPath = new String[1];
@@ -695,7 +722,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         Map<String, List<String>> attributes = new HashMap<>();
         attributes.put("pt2-var2", new AttributeValue("test2").getList());
         attributes.put("pt2-var1", new AttributeValue("test1").getList());
-        ProjectConfig pc = new NewProjectConfig("/testProvidedAttributesNotSerialized", "pt3", null, "name", "descr", attributes, null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testProvidedAttributesNotSerialized", "pt3", null, "name", "descr", attributes, null);
 
         pm.createProject(pc, null);
 
@@ -720,7 +747,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
 
         assertTrue(((Variable)projectTypeRegistry.getProjectType("settableVPPT").getAttribute("my")).isValueProvided());
 
-        ProjectConfig pc = new NewProjectConfig("/testSettableValueProvider", "settableVPPT", null, "", "", new HashMap<>(), null);
+        ProjectConfig pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testSettableValueProvider", "settableVPPT", null, "", "", new HashMap<>(), null);
 
         pm.createProject(pc, null);
 
@@ -731,7 +758,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
 
         Map<String, List<String>> attributes = new HashMap<>();
         attributes.put("my", new AttributeValue("set").getList());
-        pc = new NewProjectConfig("/testSettableValueProvider", "settableVPPT", null, "", "", attributes, null);
+        pc = new org.eclipse.che.api.project.server.NewProjectConfig("/testSettableValueProvider", "settableVPPT", null, "", "", attributes, null);
 
         pm.updateProject(pc);
         project = pm.getProject("/testSettableValueProvider");

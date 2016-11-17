@@ -59,6 +59,7 @@ import java.io.IOException;
 import java.nio.file.PathMatcher;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -388,8 +389,7 @@ public final class ProjectManager {
                 throw new BadRequestException("Path for new project should be defined");
             }
 
-            final String pathToParent = pathToProject.substring(0, pathToProject.lastIndexOf("/"));
-            final String path = ProjectRegistry.absolutizePath(pathToParent);
+            final String path = ProjectRegistry.absolutizePath(pathToProject);
             final RegisteredProject registeredProject = projectRegistry.getProject(path);
             if (registeredProject != null && rewrite) {
                 delete(path);
@@ -409,24 +409,27 @@ public final class ProjectManager {
         final String path = projectConfig.getPath();
         final String projectTypeId = projectConfig.getType();
 
-        final ProjectTypeDef projectType = projectTypeRegistry.getProjectType(projectTypeId);
-        if (projectType == null) {
+        try {
+            projectTypeRegistry.getProjectType(projectTypeId);
+        } catch (NotFoundException e) {
             projectConfig.setType(BaseProjectType.ID);
             problems.add(new Problem(12, format("Primary type %s defined for %s is not registered. Base Project Type assigned.",
                                                 projectTypeId, path)));
         }
 
-        final List<String> mixins = projectConfig.getMixins();
-        for (String mixin : mixins) {
-            final ProjectTypeDef mixinType = projectTypeRegistry.getProjectType(mixin);
-            if (mixinType == null) {
-                problems.add(new Problem(12, format("Project type %s is not registered. Skipped.", mixin)));
-                mixins.remove(mixin);
-            } else {
+        final Iterator<String> mixinsIterator = projectConfig.getMixins().iterator();
+        while (mixinsIterator.hasNext()) {
+
+            final String mixin = mixinsIterator.next();
+            try {
+                final ProjectTypeDef mixinType = projectTypeRegistry.getProjectType(mixin);
                 if (!mixinType.isMixable()) {
-                    problems.add(new Problem(12, "Project type " + mixin + " is not allowable to be mixin. It not mixable. Skipped."));
-                    mixins.remove(mixin);
+                    problems.add(new Problem(12, format("Project type %s is not allowable to be mixin. It not mixable. Skipped.", mixin)));
+                    mixinsIterator.remove();
                 }
+            } catch (NotFoundException e) {
+                problems.add(new Problem(12, format("Project type %s is not registered. Skipped.", mixin)));
+                mixinsIterator.remove();
             }
         }
         return problems;
@@ -569,7 +572,7 @@ public final class ProjectManager {
         }
 
         RegisteredProject rp = projectRegistry
-                .putProject(new org.eclipse.che.api.project.server.NewProjectConfig(normalizePath, name, BaseProjectType.ID, sourceStorage), folder, true, false);
+                .putProject(new NewProjectConfigImpl(normalizePath, name, BaseProjectType.ID, sourceStorage), folder, true, false);
         workspaceProjectsHolder.sync(projectRegistry);
         return rp;
     }
@@ -758,14 +761,14 @@ public final class ProjectManager {
 
         if (move.isProject()) {
             final RegisteredProject project = projectRegistry.getProject(itemPath);
-            org.eclipse.che.api.project.server.NewProjectConfig
-                    projectConfig = new org.eclipse.che.api.project.server.NewProjectConfig(newItem.getPath().toString(),
-                                                                  project.getType(),
-                                                                  project.getMixins(),
-                                                                  newName,
-                                                                  project.getDescription(),
-                                                                  project.getAttributes(),
-                                                                  project.getSource());
+            NewProjectConfig projectConfig = new NewProjectConfigImpl(newItem.getPath().toString(),
+                                                                      project.getType(),
+                                                                      project.getMixins(),
+                                                                      newName,
+                                                                      project.getDescription(),
+                                                                      project.getAttributes(),
+                                                                      null,
+                                                                      project.getSource());
 
             if (move instanceof FolderEntry) {
                 projectRegistry.removeProjects(project.getPath());

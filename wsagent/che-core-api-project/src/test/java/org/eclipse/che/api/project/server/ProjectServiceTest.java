@@ -489,8 +489,6 @@ public class ProjectServiceTest {
         assertNotNull(project.getBaseFolder().getChild("a"));
         assertNotNull(project.getBaseFolder().getChild("b"));
         assertNotNull(project.getBaseFolder().getChild("test.txt"));
-
-
     }
 
 

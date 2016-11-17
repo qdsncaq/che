@@ -85,7 +85,7 @@ public class RegisteredProject implements ProjectConfig {
         }
 
         this.folder = folder;
-        this.config = (config == null) ? new NewProjectConfig(path) : config;
+        this.config = (config == null) ? new NewProjectConfigImpl(path) : config;
         this.updated = updated;
         this.detected = detected;
 

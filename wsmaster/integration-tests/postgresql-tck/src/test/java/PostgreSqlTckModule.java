@@ -110,11 +110,7 @@ public class PostgreSqlTckModule extends TckModule {
         final PGSimpleDataSource dataSource = new PGSimpleDataSource();
         dataSource.setUser(dbUser);
         dataSource.setPassword(dbPassword);
-        try {
-            dataSource.setUrl(dbUrl);
-        } catch (SQLException x) {
-            throw new RuntimeException(x.getLocalizedMessage(), x);
-        }
+        dataSource.setUrl(dbUrl);
         bind(SchemaInitializer.class).toInstance(new FlywaySchemaInitializer(dataSource, "che-schema"));
 
         // account

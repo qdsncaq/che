@@ -306,26 +306,39 @@ public final class ProjectManager {
     /**
      * Create batch of projects according to their configurations.
      * <p/>
-     * A project will be created by importing when project configuration contains {@link SourceStorage} object,
-     * otherwise this one will be created corresponding its {@link NewProjectConfig}.
-     * For creating a project by generator {@link NewProjectConfig#getOptions()}
-     * should be specified.
+     * Notes:
+     * <li> - a project will be created by importing when project configuration contains {@link SourceStorage} object,
+     * otherwise this one will be created corresponding its {@link NewProjectConfig}.</li>
+     * <li> - {@link NewProjectConfig} object contains only one mandatory {@link NewProjectConfig#setPath(String)} field.
+     * In this case Project will be created as project of {@link BaseProjectType} type </li>
+     * <li> - a project will be created as project of {@link BaseProjectType} type with {@link Problem#code} = 12
+     * when declared primary project type is not registered, </li>
+     * <li> - a project will be created with {@link Problem#code} = 12 and without mixin project type
+     * when declared mixin project type is not registered</li>
+     * <li> - for creating a project by generator {@link NewProjectConfig#getOptions()}
+     * should be specified.</li>
      *
      * @param projectConfigList
      *         the list of configurations to create projects
      * @param rewrite
      *         whether rewrite or not (throw exception otherwise) if such a project exists
      * @return the list of new projects
+     * @throws BadRequestException
+     *         when {@link NewProjectConfig} object not contains mandatory {@link NewProjectConfig#setPath(String)} field.
      * @throws ConflictException
+     *         when the same path project exists and {@code rewrite} is {@code false}
      * @throws ForbiddenException
-     * @throws ServerException
+     *         when trying to overwrite the project and this one contains at least one locked file
      * @throws NotFoundException
+     *         when parent folder does not exist
+     * @throws ServerException
+     *         if other error occurs
      */
     public List<RegisteredProject> createBatchProjects(List<? extends NewProjectConfig> projectConfigList, boolean rewrite)
-            throws ConflictException, ForbiddenException, ServerException, NotFoundException, IOException, UnauthorizedException,
-                   BadRequestException {
+            throws BadRequestException, ConflictException, ForbiddenException, NotFoundException, ServerException {
         projectTreeChangesDetector.suspend();
         try {
+            final List<RegisteredProject> projects = new ArrayList<>(projectConfigList.size());
             validateProjectConfigurations(projectConfigList, rewrite);
 
             final List<NewProjectConfig> sortedConfigList = projectConfigList
@@ -333,15 +346,17 @@ public final class ProjectManager {
                     .sorted((config1, config2) -> config1.getPath().compareTo(config2.getPath()))
                     .collect(Collectors.toList());
 
-            final List<RegisteredProject> projects = new ArrayList<>(projectConfigList.size());
             for (NewProjectConfig projectConfig : sortedConfigList) {
 
                 final String pathToProject = projectConfig.getPath();
                 checkParentExist(pathToProject);
 
+                final List<Problem> problems = validateProjectTypeFor(projectConfig);
+
                 RegisteredProject registeredProject;
                 final SourceStorage sourceStorage = projectConfig.getSource();
                 final VirtualFileEntry projectFileEntry = getProjectsRoot().getChild(pathToProject);
+
                 if (sourceStorage != null && !isNullOrEmpty(sourceStorage.getLocation())) {
 
                     try {
@@ -355,15 +370,15 @@ public final class ProjectManager {
                 } else if (projectFileEntry != null) {
                     registeredProject = updateProject(projectConfig);
                 } else {
-                    final List<Problem> problems = validateProjectTypeFor(projectConfig);
                     registeredProject = doCreateProject(projectConfig, projectConfig.getOptions());
-                    registeredProject.getProblems().addAll(problems);
                 }
 
+                registeredProject.getProblems().addAll(problems);
                 projects.add(registeredProject);
             }
 
             return projects;
+
         } finally {
             projectTreeChangesDetector.resume();
         }

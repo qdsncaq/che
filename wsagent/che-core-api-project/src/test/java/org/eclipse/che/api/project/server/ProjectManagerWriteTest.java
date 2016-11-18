@@ -864,7 +864,7 @@ public class ProjectManagerWriteTest extends WsAgentTestBase {
         ByteArrayOutputStream bout = new ByteArrayOutputStream();
         ZipOutputStream zipOut = new ZipOutputStream(bout);
 
-        for(String path : paths) {
+        for (String path : paths) {
             zipOut.putNextEntry(new ZipEntry(path));
 
             if (path.contains("file")) {

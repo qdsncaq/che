@@ -150,7 +150,7 @@ public class PostgreSqlTckModule extends TckModule {
 
     private static void waitConnectionIsEstablished(String dbUrl, String dbUser, String dbPassword) {
         boolean isAvailable = false;
-        for (int i = 0; i < 20 && !isAvailable; i++) {
+        for (int i = 0; i < 60 && !isAvailable; i++) {
             try (Connection conn = DriverManager.getConnection(dbUrl, dbUser, dbPassword)) {
                 isAvailable = true;
             } catch (SQLException x) {
